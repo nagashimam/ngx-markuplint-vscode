@@ -2,120 +2,85 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
-import {
-	createConnection,
-	TextDocuments,
+import type {
 	Diagnostic,
-	DiagnosticSeverity,
-	ProposedFeatures,
 	InitializeParams,
-	DidChangeConfigurationNotification,
-	CompletionItem,
-	CompletionItemKind,
-	TextDocumentPositionParams,
-	TextDocumentSyncKind,
-	InitializeResult,
-	DocumentDiagnosticReportKind,
-	type DocumentDiagnosticReport
-} from 'vscode-languageserver/node';
+	DocumentDiagnosticReport,
+	DiagnosticSeverity,
+} from "vscode-languageserver/node";
 
+import { resolve } from "node:path";
 import {
-	TextDocument
-} from 'vscode-languageserver-textdocument';
+	TextDocuments,
+	TextDocumentSyncKind,
+	createConnection,
+	DidChangeConfigurationNotification,
+	DocumentDiagnosticReportKind,
+} from "vscode-languageserver/node";
 
-// Create a connection for the server, using Node's IPC as a transport.
-// Also include all preview / proposed LSP features.
-const connection = createConnection(ProposedFeatures.all);
+import { TextDocument } from "vscode-languageserver-textdocument";
+import type { Range } from "vscode-languageserver-textdocument";
 
-// Create a simple text document manager.
+import type { Config, OverrideConfig, Violation } from "@markuplint/ml-config";
+
+import { format } from "prettier";
+
+const connection = createConnection();
+
 const documents = new TextDocuments(TextDocument);
 
 let hasConfigurationCapability = false;
-let hasWorkspaceFolderCapability = false;
-let hasDiagnosticRelatedInformationCapability = false;
 
 connection.onInitialize((params: InitializeParams) => {
 	const capabilities = params.capabilities;
-
-	// Does the client support the `workspace/configuration` request?
-	// If not, we fall back using global settings.
 	hasConfigurationCapability = !!(
 		capabilities.workspace && !!capabilities.workspace.configuration
 	);
-	hasWorkspaceFolderCapability = !!(
-		capabilities.workspace && !!capabilities.workspace.workspaceFolders
-	);
-	hasDiagnosticRelatedInformationCapability = !!(
-		capabilities.textDocument &&
-		capabilities.textDocument.publishDiagnostics &&
-		capabilities.textDocument.publishDiagnostics.relatedInformation
-	);
 
-	const result: InitializeResult = {
+	return {
 		capabilities: {
 			textDocumentSync: TextDocumentSyncKind.Incremental,
-			// Tell the client that this server supports code completion.
-			completionProvider: {
-				resolveProvider: true
-			},
 			diagnosticProvider: {
 				interFileDependencies: false,
-				workspaceDiagnostics: false
-			}
-		}
+				workspaceDiagnostics: false,
+			},
+		},
 	};
-	if (hasWorkspaceFolderCapability) {
-		result.capabilities.workspace = {
-			workspaceFolders: {
-				supported: true
-			}
-		};
-	}
-	return result;
 });
 
 connection.onInitialized(() => {
 	if (hasConfigurationCapability) {
 		// Register for all configuration changes.
-		connection.client.register(DidChangeConfigurationNotification.type, undefined);
-	}
-	if (hasWorkspaceFolderCapability) {
-		connection.workspace.onDidChangeWorkspaceFolders(_event => {
-			connection.console.log('Workspace folder change event received.');
-		});
+		connection.client.register(
+			DidChangeConfigurationNotification.type,
+			undefined,
+		);
 	}
 });
 
-// The example settings
-interface ExampleSettings {
-	maxNumberOfProblems: number;
+interface MarkuplintConfig {
+	markuplintConfig: Config;
 }
-
-// The global settings, used when the `workspace/configuration` request is not supported by the client.
-// Please note that this is not the case when using this server with the client provided in this example
-// but could happen with other clients.
-const defaultSettings: ExampleSettings = { maxNumberOfProblems: 1000 };
-let globalSettings: ExampleSettings = defaultSettings;
+const defaultSettings: MarkuplintConfig = {
+	markuplintConfig: {
+		extends: ["markuplint:recommended"],
+	},
+};
+let globalSettings: MarkuplintConfig = defaultSettings;
 
 // Cache the settings of all open documents
-const documentSettings = new Map<string, Thenable<ExampleSettings>>();
+const documentSettings = new Map<string, Thenable<MarkuplintConfig>>();
 
-connection.onDidChangeConfiguration(change => {
+connection.onDidChangeConfiguration((change) => {
 	if (hasConfigurationCapability) {
-		// Reset all cached document settings
 		documentSettings.clear();
 	} else {
-		globalSettings = (
-			(change.settings.languageServerExample || defaultSettings)
-		);
+		globalSettings = change.settings.ngxMarkuplint || defaultSettings;
 	}
-	// Refresh the diagnostics since the `maxNumberOfProblems` could have changed.
-	// We could optimize things here and re-fetch the setting first can compare it
-	// to the existing setting, but this is out of scope for this example.
 	connection.languages.diagnostics.refresh();
 });
 
-function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
+function getDocumentSettings(resource: string): Thenable<MarkuplintConfig> {
 	if (!hasConfigurationCapability) {
 		return Promise.resolve(globalSettings);
 	}
@@ -123,7 +88,7 @@ function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
 	if (!result) {
 		result = connection.workspace.getConfiguration({
 			scopeUri: resource,
-			section: 'languageServerExample'
+			section: "ngxMarkuplint",
 		});
 		documentSettings.set(resource, result);
 	}
@@ -131,123 +96,206 @@ function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
 }
 
 // Only keep settings for open documents
-documents.onDidClose(e => {
+documents.onDidClose((e) => {
 	documentSettings.delete(e.document.uri);
 });
-
 
 connection.languages.diagnostics.on(async (params) => {
 	const document = documents.get(params.textDocument.uri);
 	if (document !== undefined) {
 		return {
 			kind: DocumentDiagnosticReportKind.Full,
-			items: await validateTextDocument(document)
-		} satisfies DocumentDiagnosticReport;
-	} else {
-		// We don't know the document. We can either try to read it from disk
-		// or we don't report problems for it.
-		return {
-			kind: DocumentDiagnosticReportKind.Full,
-			items: []
+			items: await validateTextDocument(document),
 		} satisfies DocumentDiagnosticReport;
 	}
+
+	// We don't know the document. We can either try to read it from disk
+	// or we don't report problems for it.
+	return {
+		kind: DocumentDiagnosticReportKind.Full,
+		items: [],
+	} satisfies DocumentDiagnosticReport;
 });
 
-// The content of a text document has changed. This event is emitted
-// when the text document first opened or when its content has changed.
-documents.onDidChangeContent(change => {
-	validateTextDocument(change.document);
-});
+const getOverridesConfig = (
+	config: Config,
+	textDocument: TextDocument,
+): OverrideConfig => {
+	const overrides = config.overrides;
+	if (!overrides) {
+		return {};
+	}
 
-async function validateTextDocument(textDocument: TextDocument): Promise<Diagnostic[]> {
-	// In this simple example we get the settings for every validate run.
-	const settings = await getDocumentSettings(textDocument.uri);
-
-	// The validator creates diagnostics for all uppercase words length 2 and more
-	const text = textDocument.getText();
-	const pattern = /\b[A-Z]{2,}\b/g;
-	let m: RegExpExecArray | null;
-
-	let problems = 0;
-	const diagnostics: Diagnostic[] = [];
-	while ((m = pattern.exec(text)) && problems < settings.maxNumberOfProblems) {
-		problems++;
-		const diagnostic: Diagnostic = {
-			severity: DiagnosticSeverity.Warning,
-			range: {
-				start: textDocument.positionAt(m.index),
-				end: textDocument.positionAt(m.index + m[0].length)
-			},
-			message: `${m[0]} is all uppercase.`,
-			source: 'ex'
-		};
-		if (hasDiagnosticRelatedInformationCapability) {
-			diagnostic.relatedInformation = [
-				{
-					location: {
-						uri: textDocument.uri,
-						range: Object.assign({}, diagnostic.range)
-					},
-					message: 'Spelling matters'
-				},
-				{
-					location: {
-						uri: textDocument.uri,
-						range: Object.assign({}, diagnostic.range)
-					},
-					message: 'Particularly for names'
-				}
-			];
+	const currentFile = textDocument.uri.replace("file://", "");
+	for (const overridesKey of Object.keys(overrides)) {
+		const resolvedFile = resolve(overridesKey);
+		if (resolvedFile === currentFile) {
+			return overrides[overridesKey];
 		}
-		diagnostics.push(diagnostic);
 	}
-	return diagnostics;
+
+	return {};
+};
+
+async function validateTextDocument(
+	textDocument: TextDocument,
+): Promise<Diagnostic[]> {
+	const { markuplintConfig } = await getDocumentSettings(textDocument.uri);
+	const overridesConfig = getOverridesConfig(markuplintConfig, textDocument);
+
+	const { bridgeTemplate } = await import("ngx-html-bridge");
+	const { MLEngine } = await import("markuplint");
+	const htmls = bridgeTemplate(
+		textDocument.getText(),
+		textDocument.uri.replace("file://", ""),
+	);
+
+	const diagnostics = new Map<string, Diagnostic>();
+	for (const html of htmls) {
+		const engine = await MLEngine.fromCode(html, {
+			config: {
+				...markuplintConfig,
+				...overridesConfig,
+			},
+			ignoreExt: true,
+		});
+		const result = await engine.exec();
+		const violations = result?.violations;
+		if (violations === undefined) {
+			continue;
+		}
+
+		if (violations.length === 0) {
+			continue;
+		}
+
+		for (const violation of violations) {
+			const range = extractRange(textDocument, violation, html);
+			const diagnostic: Diagnostic = {
+				severity: convertToMarkuplintSeverityToDiagnosticSeverity(
+					violation.severity,
+				),
+				range,
+				message: `${violation.message}`,
+				source: `ngx-markuplint(${violation.ruleId})`,
+				relatedInformation: [
+					{
+						message: `
+${await format(removeNgxHTMLBridgeAttributes(html), { parser: "html" })}
+            `,
+						location: {
+							uri: textDocument.uri,
+							range,
+						},
+					},
+				],
+			};
+			diagnostics.set(
+				JSON.stringify({ range, message: violation.message }),
+				diagnostic,
+			);
+		}
+	}
+
+	return [...diagnostics.values()];
 }
 
-connection.onDidChangeWatchedFiles(_change => {
-	// Monitored files have change in VSCode
-	connection.console.log('We received a file change event');
-});
-
-// This handler provides the initial list of the completion items.
-connection.onCompletion(
-	(_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-		// The pass parameter contains the position of the text document in
-		// which code complete got requested. For the example we ignore this
-		// info and always provide the same completion items.
-		return [
-			{
-				label: 'TypeScript',
-				kind: CompletionItemKind.Text,
-				data: 1
-			},
-			{
-				label: 'JavaScript',
-				kind: CompletionItemKind.Text,
-				data: 2
-			}
-		];
-	}
-);
-
-// This handler resolves additional information for the item selected in
-// the completion list.
-connection.onCompletionResolve(
-	(item: CompletionItem): CompletionItem => {
-		if (item.data === 1) {
-			item.detail = 'TypeScript details';
-			item.documentation = 'TypeScript documentation';
-		} else if (item.data === 2) {
-			item.detail = 'JavaScript details';
-			item.documentation = 'JavaScript documentation';
-		}
-		return item;
-	}
-);
-
-// Make the text document manager listen on the connection
-// for open, change and close text document events
 documents.listen(connection);
-
-// Listen on the connection
 connection.listen();
+
+const convertToMarkuplintSeverityToDiagnosticSeverity = (
+	severity: "info" | "warning" | "error",
+): DiagnosticSeverity => {
+	if (severity === "info") {
+		return 3;
+	}
+
+	if (severity === "warning") {
+		return 2;
+	}
+
+	if (severity === "error") {
+		return 1;
+	}
+
+	// Should never happen
+	return 4;
+};
+
+const extractRange = (
+	textDocument: TextDocument,
+	violation: Violation,
+	html: string,
+): Range => {
+	// Based on the assumption raw is either HTML or its attribute definition part
+	// e.g. It's either something like "<img/>" or "aria-label=\"lagel\""
+	// TODO: Verify this assumption
+	const offsets =
+		extractOffsetsFromHTMLRaw(violation.raw) ||
+		extractOffsetsFromAttributeRaw(html, violation);
+	const start = offsets
+		? textDocument.positionAt(offsets.startOffset)
+		: {
+				line: violation.line - 1,
+				character: violation.col - 1,
+			};
+	const end = offsets
+		? textDocument.positionAt(offsets.endOffset)
+		: {
+				line: violation.line - 1,
+				character: violation.col - 1,
+			};
+	return { start, end };
+};
+
+const extractOffsetsFromHTMLRaw = (
+	raw: string,
+): { startOffset: number; endOffset: number } | null => {
+	const regex =
+		/data-ngx-html-bridge-start-offset="(\d+)"\s+data-ngx-html-bridge-end-offset="(\d+)"/;
+	const match = raw.match(regex);
+
+	if (match) {
+		const startOffset = Number.parseInt(match[1], 10);
+		const endOffset = Number.parseInt(match[2], 10);
+		return { startOffset, endOffset };
+	}
+
+	return null;
+};
+
+const extractOffsetsFromAttributeRaw = (
+	html: string,
+	violation: Violation,
+): { startOffset: number; endOffset: number } | null => {
+	const { raw, col } = violation;
+	const rawIndex = html.indexOf(raw);
+	if (rawIndex === -1) {
+		return null;
+	}
+
+	// The source span of each attribute (e.g., data-ngx-html-bridge-attr-name-start/end-offset) appears immediately after the attribute definition.
+	// Additionally, the same attribute can appear multiple times in the HTML.
+	// Therefore, we need the string immediately following the attribute definition and should take the first occurrence of data-ngx-html-bridge-attr-name-start/end-offset from it.
+	const htmlAfterRaw = html.substring(col + raw.length, html.length);
+	html.substring(rawIndex + raw.length);
+	const attrName = raw.split("=")[0].trim();
+	const rawOffsetRegex = new RegExp(
+		`data-ngx-html-bridge-${attrName}-start-offset="(\\d+)"\\s+data-ngx-html-bridge-${attrName}-end-offset="(\\d+)"`,
+		"i",
+	);
+	const match = htmlAfterRaw.match(rawOffsetRegex);
+
+	const rawStartOffset = match ? Number.parseInt(match[1], 10) : 0;
+	const rawEndOffset = match ? Number.parseInt(match[2], 10) : 0;
+
+	return {
+		startOffset: rawStartOffset,
+		endOffset: rawEndOffset,
+	};
+};
+
+const removeNgxHTMLBridgeAttributes = (html: string): string => {
+	const regex = /\s*data-ngx-html-bridge-[a-z-]+="[^"]*"/g;
+	return html.replace(regex, "");
+};
