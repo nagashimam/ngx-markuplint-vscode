@@ -3,7 +3,7 @@
 	"description": "Angular integration for Markuplint",
 	"author": "Masato Nagashima",
 	"license": "MIT",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/nagashimam/ngx-markuplint-vscode.git"
@@ -60,7 +60,7 @@
 	"dependencies": {
 		"@markuplint/ml-config": "^4.8.11",
 		"markuplint": "^4.12.0",
-		"ngx-html-bridge-markuplint": "^0.0.1",
+		"ngx-html-bridge-markuplint": "^0.0.2",
 		"prettier": "^3.5.3"
 	}
 }
