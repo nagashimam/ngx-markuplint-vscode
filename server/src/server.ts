@@ -68,7 +68,7 @@ async function validateTextDocument(
 		textDocument.getText(),
 		textDocument.uri.replace("file://", ""),
 	);
-	const diagnostics = new Map<string, Diagnostic>();
+	const diagnostics: Diagnostic[] = [];
 	const resultsWithViolations = results.filter(
 		(result) => !!result && !!result.violations && result.violations.length > 0,
 	);
@@ -86,17 +86,10 @@ async function validateTextDocument(
 				violation,
 				formattedHtml,
 			);
-			diagnostics.set(
-				JSON.stringify({
-					startOffset: violation.startOffset,
-					endOffset: violation.endOffset,
-					message: violation.message,
-				}),
-				diagnostic,
-			);
+			diagnostics.push(diagnostic);
 		});
 	}
-	return [...diagnostics.values()];
+	return diagnostics;
 }
 
 documents.listen(connection);
