@@ -60,7 +60,8 @@
 	"dependencies": {
 		"@markuplint/ml-config": "^4.8.11",
 		"markuplint": "^4.12.0",
-		"ngx-html-bridge-markuplint": "^0.0.4",
+		"ngx-html-bridge": "^0.0.16",
+		"ngx-html-bridge-markuplint": "^0.0.6",
 		"prettier": "^3.5.3"
 	}
 }
