@@ -3,7 +3,7 @@
 	"description": "Angular integration for Markuplint",
 	"author": "Masato Nagashima",
 	"license": "MIT",
-	"version": "0.0.14",
+	"version": "0.0.16",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/nagashimam/ngx-markuplint-vscode.git"
@@ -30,11 +30,11 @@
 			"type": "object",
 			"title": "ngx-markuplint-vscode's config",
 			"properties": {
-				"ngxMarkuplint.markuplintConfig": {
+				"ngxMarkuplint.includedAttributes": {
 					"scope": "resource",
-					"type": "object",
-					"default": {},
-					"description": "Conifg of Markuplint. Something you'd write in .markuplintrc.json for plain HTML"
+					"type": "array",
+					"default": [],
+					"description": "List of attributes to include when linting Angular templates."
 				}
 			}
 		}
@@ -60,8 +60,7 @@
 	"dependencies": {
 		"@markuplint/ml-config": "^4.8.11",
 		"markuplint": "^4.12.0",
-		"ngx-html-bridge": "^0.0.16",
-		"ngx-html-bridge-markuplint": "^0.0.13",
+		"ngx-html-bridge-markuplint": "^0.0.16",
 		"prettier": "^3.5.3"
 	}
 }

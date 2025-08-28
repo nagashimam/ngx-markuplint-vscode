@@ -18,11 +18,27 @@ import {
 import { TextDocument } from "vscode-languageserver-textdocument";
 
 import { format } from "prettier";
-import type { BridgeMLResultInfo } from "ngx-html-bridge-markuplint";
+import type {
+	BridgeMLResultInfo,
+	BridgeOption,
+} from "ngx-html-bridge-markuplint";
+
+let globalSettings: BridgeOption | undefined;
+const documentSettings = new Map<string, Thenable<BridgeOption>>();
 
 const connection = createConnection();
 
 const documents = new TextDocuments(TextDocument);
+
+connection.onDidChangeConfiguration((change) => {
+	globalSettings = change.settings.ngxMarkuplint;
+	connection.languages.diagnostics.refresh();
+});
+
+// Only keep settings for open documents
+documents.onDidClose((e) => {
+	documentSettings.delete(e.document.uri);
+});
 
 connection.onInitialize(() => {
 	return {
@@ -61,12 +77,17 @@ connection.languages.diagnostics.on(async (params) => {
 async function validateTextDocument(
 	textDocument: TextDocument,
 ): Promise<Diagnostic[]> {
+	if (!globalSettings) {
+		globalSettings =
+			await connection.workspace.getConfiguration("ngxMarkuplint");
+	}
 	const { runMarkuplintAgainstTemplate } = await import(
 		"ngx-html-bridge-markuplint"
 	);
 	const results = await runMarkuplintAgainstTemplate(
 		textDocument.getText(),
 		textDocument.uri.replace("file://", ""),
+		globalSettings || { includedAttributes: [] },
 	);
 	const diagnostics: Diagnostic[] = [];
 	const resultsWithViolations = results.filter(
