@@ -23,6 +23,8 @@ import type {
 	BridgeOption,
 } from "ngx-html-bridge-markuplint";
 
+import { runMarkuplintAgainstTemplate } from "ngx-html-bridge-markuplint";
+
 let globalSettings: BridgeOption | undefined;
 const documentSettings = new Map<string, Thenable<BridgeOption>>();
 
@@ -81,9 +83,6 @@ async function validateTextDocument(
 		globalSettings =
 			await connection.workspace.getConfiguration("ngxMarkuplint");
 	}
-	const { runMarkuplintAgainstTemplate } = await import(
-		"ngx-html-bridge-markuplint"
-	);
 	const results = await runMarkuplintAgainstTemplate(
 		textDocument.getText(),
 		textDocument.uri.replace("file://", ""),
