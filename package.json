@@ -1,66 +1,66 @@
 {
-	"name": "ngx-markuplint-vscode",
-	"description": "Angular integration for Markuplint",
-	"author": "Masato Nagashima",
-	"license": "MIT",
-	"version": "0.0.16",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/nagashimam/ngx-markuplint-vscode.git"
-	},
-	"publisher": "nagashimam",
-	"categories": [
-		"Linters"
-	],
-	"keywords": [
-		"Angular",
-		"linter",
-		"Markuplint"
-	],
-	"engines": {
-		"vscode": "^1.75.0"
-	},
-	"activationEvents": [
-		"onLanguage:html",
-		"onLanguage:typescript"
-	],
-	"main": "./client/out/extension",
-	"contributes": {
-		"configuration": {
-			"type": "object",
-			"title": "ngx-markuplint-vscode's config",
-			"properties": {
-				"ngxMarkuplint.includedAttributes": {
-					"scope": "resource",
-					"type": "array",
-					"default": [],
-					"description": "List of attributes to include when linting Angular templates."
-				}
-			}
-		}
-	},
-	"scripts": {
-		"vscode:prepublish": "npm run compile",
-		"compile": "tsc -b",
-		"watch": "tsc -b -w",
-		"lint": "eslint",
-		"postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
-		"test": "sh ./scripts/e2e.sh"
-	},
-	"devDependencies": {
-		"@eslint/js": "^9.13.0",
-		"@stylistic/eslint-plugin": "^2.9.0",
-		"@types/mocha": "^10.0.6",
-		"@types/node": "^20",
-		"eslint": "^9.13.0",
-		"mocha": "^10.3.0",
-		"typescript": "^5.8.2",
-		"typescript-eslint": "^8.26.0"
-	},
-	"dependencies": {
-		"@markuplint/ml-config": "^4.8.11",
-		"markuplint": "^4.12.0",
-		"ngx-html-bridge-markuplint": "^0.0.17",
-		"prettier": "^3.5.3"
-	}
+  "name": "ngx-markuplint-vscode",
+  "description": "Angular integration for Markuplint",
+  "author": "Masato Nagashima",
+  "license": "MIT",
+  "version": "0.0.18",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nagashimam/ngx-markuplint-vscode.git"
+  },
+  "publisher": "nagashimam",
+  "categories": [
+    "Linters"
+  ],
+  "keywords": [
+    "Angular",
+    "linter",
+    "Markuplint"
+  ],
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "activationEvents": [
+    "onLanguage:html",
+    "onLanguage:typescript"
+  ],
+  "main": "./client/out/extension",
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "ngx-markuplint-vscode's config",
+      "properties": {
+        "ngxMarkuplint.includedAttributes": {
+          "scope": "resource",
+          "type": "array",
+          "default": [],
+          "description": "List of attributes to include when linting Angular templates."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w",
+    "lint": "eslint",
+    "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
+    "test": "sh ./scripts/e2e.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@stylistic/eslint-plugin": "^2.9.0",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20",
+    "eslint": "^9.13.0",
+    "mocha": "^10.3.0",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.26.0"
+  },
+  "dependencies": {
+    "@markuplint/ml-config": "^4.8.11",
+    "markuplint": "^4.12.0",
+    "ngx-html-bridge-markuplint": "^0.0.22",
+    "prettier": "^3.5.3"
+  }
 }
